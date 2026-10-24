@@ -1,0 +1,392 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="#" aria-label="ShiftMaster inicio">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.5 9.2 12l3.2 3.2L20 7.5M15 7.5h5v5"/></svg></span>
+      <span>Shift<span class="brand-light">Master</span></span>
+    </a>
+
+    <div class="workspace-label">ESPACIO DE TRABAJO</div>
+    <nav class="main-nav" aria-label="Navegación principal">
+      <button class="nav-item" [class.active]="activePage() === 'schedule'" [attr.aria-current]="activePage() === 'schedule' ? 'page' : null" (click)="activePage.set('schedule')"><span class="nav-icon">▦</span> Cuadrante semanal</button>
+      <button class="nav-item" [class.active]="activePage() === 'employees'" [attr.aria-current]="activePage() === 'employees' ? 'page' : null" (click)="activePage.set('employees')"><span class="nav-icon">♙</span> Empleados <span class="nav-count">{{ employees().length }}</span></button>
+      <button class="nav-item" [class.active]="activePage() === 'reports'" [attr.aria-current]="activePage() === 'reports' ? 'page' : null" (click)="activePage.set('reports')"><span class="nav-icon">▤</span> Informes</button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="team-card">
+        <div class="team-avatar">NS</div>
+        <div><strong>Northstar Studio</strong><span>Plan Profesional</span></div>
+        <span class="team-more">···</span>
+      </div>
+      <div class="profile">
+        <div class="profile-avatar">LM</div>
+        <div class="profile-copy"><strong>Laura Martínez</strong><span>Administradora</span></div>
+        <button class="icon-button profile-menu" aria-label="Opciones de perfil">···</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-area">
+    <header class="topbar">
+      <div class="breadcrumbs"><span>Planificación</span><span class="crumb-separator">/</span><strong>{{ pageTitle() }}</strong></div>
+      <div class="topbar-actions">
+        <button class="icon-button notification-button" aria-label="Notificaciones"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><i></i></button>
+        <div class="topbar-avatar">LM</div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      @if (apiPending()) {
+        <div class="connection-note loading-note"><span class="loader"></span> Conectando con ShiftMaster API...</div>
+      } @else if (apiErrors().length) {
+        <div class="connection-note demo-note"><span class="status-light"></span><span><strong>Problema con la API</strong> · {{ apiErrors()[0] }}. Se muestran datos de demostración donde no hay respuesta.</span><button class="text-button" (click)="reloadData()">Reintentar</button></div>
+      }
+
+      @if (employeeNotice()) { <div class="success-note" role="status">{{ employeeNotice() }}</div> }
+      @if (activePage() === 'schedule') {
+      <section class="page-heading">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-mark"></span> PLANIFICACIÓN DE EQUIPO</div>
+          <h1>Cuadrante semanal</h1>
+          <p class="page-subtitle">Organiza los turnos y mantén a tu equipo en sintonía.</p>
+        </div>
+        <button class="primary-button" (click)="openCreate()"><span class="plus">+</span> Asignar turno</button>
+      </section>
+
+      <section class="kpi-grid" aria-label="Resumen semanal">
+        <article class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Horas planificadas</span><span class="kpi-icon hours-icon">◷</span></div>
+          <div class="kpi-value">{{ plannedHours() }}<span class="kpi-unit">h</span></div>
+          <div class="kpi-foot"><span class="trend-pill">↗ 8,2%</span><span>vs. semana anterior</span></div>
+        </article>
+        <article class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Turnos cubiertos</span><span class="kpi-icon shifts-icon">▦</span></div>
+          <div class="kpi-value">{{ coveredShifts() }}<span class="kpi-unit">/{{ targetShifts }}</span></div>
+          <div class="progress-track"><span [style.width.%]="coveragePercent()"></span></div>
+          <div class="kpi-foot"><span>{{ coveragePercent() }}% de cobertura semanal</span></div>
+        </article>
+        <article class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Solicitudes pendientes</span><span class="kpi-icon requests-icon">♧</span></div>
+          <div class="kpi-value">{{ pendingRequests() }}<span class="kpi-unit"> solicitudes</span></div>
+          <div class="kpi-foot"><span class="request-link">Revisar solicitudes <span>→</span></span></div>
+        </article>
+        <article class="kpi-card">
+          <div class="kpi-top"><span class="kpi-label">Empleados activos</span><span class="kpi-icon people-icon">♙</span></div>
+          <div class="kpi-value">{{ activeEmployees() }}<span class="kpi-unit"> personas</span></div>
+          <div class="kpi-foot"><span class="avatar-stack"><i>AC</i><i>MR</i><i>JP</i></span><span>Equipo completo</span></div>
+        </article>
+      </section>
+
+      <section class="schedule-panel">
+        @if (copyNotice()) { <div class="copy-notice" role="status"><span>{{ copyNotice() }}</span><button aria-label="Cerrar aviso" (click)="copyNotice.set('')">×</button></div> }
+        @if (shiftNotice()) { <div class="shift-notice" role="status"><span>{{ shiftNotice() }}</span><button aria-label="Cerrar aviso" (click)="dismissShiftNotice()">×</button></div> }
+        <div class="schedule-toolbar">
+          <div>
+            <h2 class="active-month-title">{{ monthTitle() }}</h2>
+            <p class="schedule-caption">{{ calendarPeriodLabel() }}</p>
+          </div>
+          <div class="toolbar-controls">
+            <div class="view-toggle" aria-label="Vista del cuadrante">
+              <button [class.selected]="viewMode() === 'week'" [attr.aria-pressed]="viewMode() === 'week'" (click)="setViewMode('week')">Semana</button>
+              <button [class.selected]="viewMode() === 'month'" [attr.aria-pressed]="viewMode() === 'month'" (click)="setViewMode('month')">Mes</button>
+            </div>
+            <div class="month-selectors" aria-label="Seleccionar mes y año">
+              <label><span class="sr-only">Mes</span>
+                <select [ngModel]="selectedMonthIndex()" (ngModelChange)="changeMonth($event)">
+                  @for (month of monthOptions; track month.value) { <option [ngValue]="month.value">{{ month.label }}</option> }
+                </select>
+              </label>
+              <label><span class="sr-only">Año</span>
+                <select [ngModel]="selectedYear()" (ngModelChange)="changeYear($event)">
+                  @for (year of yearOptions; track year) { <option [ngValue]="year">{{ year }}</option> }
+                  @if (!yearOptions.includes(selectedYear())) { <option [ngValue]="selectedYear()">{{ selectedYear() }}</option> }
+                </select>
+              </label>
+            </div>
+            <div class="week-controls" aria-label="Navegar por semanas">
+              <button class="icon-button week-arrow" [attr.aria-label]="viewMode() === 'month' ? 'Mes anterior' : 'Semana anterior'" [title]="viewMode() === 'month' ? 'Mes anterior' : 'Semana anterior'" (click)="navigatePeriod(-1)">‹</button>
+              <button class="today-button" (click)="goToToday()">Hoy</button>
+              <button class="icon-button week-arrow" [attr.aria-label]="viewMode() === 'month' ? 'Mes siguiente' : 'Semana siguiente'" [title]="viewMode() === 'month' ? 'Mes siguiente' : 'Semana siguiente'" (click)="navigatePeriod(1)">›</button>
+            </div>
+            <label class="department-select"><span class="sr-only">Filtrar por departamento</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.5 7.5v5L10 19v-6.5z"/></svg>
+              <select [ngModel]="department()" (ngModelChange)="department.set($event)">
+                <option value="Todos">Todos los departamentos</option>
+                @for (departmentName of departmentOptions(); track departmentName) { <option [value]="departmentName">{{ departmentName }}</option> }
+              </select>
+            </label>
+            <button class="export-button" (click)="exportWeeklyPdf()" [disabled]="exportingPdf()" [attr.aria-label]="'Exportar cuadrante ' + (viewMode() === 'month' ? 'mensual' : 'semanal') + ' a PDF'">
+              @if (exportingPdf()) { <span class="export-spinner"></span><span>Generando PDF...</span> }
+              @else { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5M12 12v6m-3-3 3 3 3-3"/></svg><span>Exportar PDF</span> }
+            </button>
+          </div>
+        </div>
+
+        <div class="schedule-legend">
+          <span><i class="legend-dot morning"></i>Mañana</span><span><i class="legend-dot afternoon"></i>Tarde</span><span><i class="legend-dot night"></i>Noche</span><span><i class="legend-dot guard"></i>Guardia</span>
+          <span class="legend-note"><i></i> Turno asignado</span>
+        </div>
+
+        <div class="grid-scroll" [class.month-grid-scroll]="viewMode() === 'month'">
+          <div class="schedule-grid" [class.month-view]="viewMode() === 'month'" [style.--day-count]="days().length">
+            <div class="grid-header employee-header"><span>EQUIPO</span><small>{{ visibleEmployees().length }} empleados</small></div>
+            @for (day of days(); track day.date) {
+              <div class="grid-header day-header" [class.today-column]="day.isToday" [class.weekend-column]="day.isWeekend" [attr.title]="formatCalendarDate(day.date)">
+                @if (viewMode() === 'month') {
+                  <strong class="monthly-day-number">{{ day.dayNumber }}</strong><span class="weekday-initial">{{ day.weekdayInitial }}</span>
+                } @else {
+                  <span>{{ day.label }}</span><strong>{{ day.dayNumber }}</strong>
+                }
+                @if (day.isToday) { <i>HOY</i> }
+                <button class="copy-day-button" [attr.aria-label]="'Copiar turnos del ' + formatCalendarDate(day.date)" [title]="'Copiar turnos del ' + formatCalendarDate(day.date)" (click)="openCopyModal(day.date)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                </button>
+              </div>
+            }
+            @for (employee of visibleEmployees(); track employee.id) {
+              <div class="employee-cell">
+                <div class="employee-avatar" [class]="'employee-avatar ' + employee.color">{{ employee.initials }}</div>
+                <div class="employee-info"><strong>{{ employee.name }}</strong><span>{{ employee.department }}</span></div>
+                <div class="employee-hours"><strong>{{ employeeHours(employee.id) }}h</strong><span>{{ employeeHoursCaption() }}</span></div>
+              </div>
+              @for (day of days(); track day.date) {
+                <div class="shift-cell" [class.today-column]="day.isToday" [class.weekend-column]="day.isWeekend" [attr.data-date]="day.date" [attr.title]="dayCellTooltip(employee, day.date)" (click)="openCell(employee, day.date)">
+                  @for (shift of shiftsFor(employee.id, day.date); track shift.id) {
+                    <article class="shift-card" [class]="'shift-card ' + shift.type" [class.monthly-shift-card]="viewMode() === 'month'" [title]="shiftTooltip(employee, shift)" (click)="$event.stopPropagation(); openEdit(shift)">
+                      @if (viewMode() === 'month') {
+                        <span class="monthly-shift-initial" [attr.aria-label]="shiftLabel(shift.type)">{{ shiftInitial(shift.type) }}</span>
+                        <button class="shift-copy-action" [attr.aria-label]="'Duplicar turno de ' + employee.name" [title]="'Duplicar este turno'" (click)="$event.stopPropagation(); openSingleCopyModal(shift)">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                        </button>
+                        <button class="shift-delete-action" [attr.aria-label]="'Eliminar turno de ' + employee.name" title="Eliminar turno" (click)="$event.stopPropagation(); deleteShift(shift)">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3"/></svg>
+                        </button>
+                      } @else {
+                      <div class="shift-title-row"><span class="shift-type">{{ shiftLabel(shift.type) }}</span>
+                        <div class="shift-actions">
+                          <button aria-label="Duplicar este turno" title="Duplicar este turno" (click)="$event.stopPropagation(); openSingleCopyModal(shift)">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                          </button>
+                          <button aria-label="Editar turno" title="Editar turno" (click)="$event.stopPropagation(); openEdit(shift)">✎</button>
+                          <button class="shift-delete-action" aria-label="Eliminar turno" title="Eliminar turno" (click)="$event.stopPropagation(); deleteShift(shift)">×</button>
+                        </div>
+                      </div>
+                      <strong class="shift-time">{{ shift.startTime }} – {{ shift.endTime }}</strong>
+                      }
+                    </article>
+                  }
+                  @if (shiftsFor(employee.id, day.date).length === 0) {
+                    <button class="empty-slot" (click)="$event.stopPropagation(); openCreate(employee.id, day.date)" [attr.aria-label]="'Asignar turno a ' + employee.name + ' el ' + day.date"><span>+</span></button>
+                  }
+                </div>
+              }
+            } @empty {
+              <div class="empty-team">No hay empleados en este departamento.</div>
+            }
+          </div>
+        </div>
+        <footer class="schedule-footer"><span>Mostrando <strong>{{ visibleEmployees().length }}</strong> de {{ employees().length }} empleados</span><span>Última actualización: hace unos instantes <i class="refresh-mark">↻</i></span></footer>
+      </section>
+
+      <div class="page-footer"><span>© 2025 ShiftMaster. Planifica con claridad.</span><span>Ayuda y soporte <b>·</b> Política de privacidad</span></div>
+      } @else if (activePage() === 'employees') {
+        <section class="module-heading">
+          <div><div class="eyebrow"><span class="eyebrow-mark"></span> GESTIÓN DE EQUIPO</div><h1>Directorio de empleados</h1><p class="page-subtitle">Administra la información y disponibilidad de tu equipo.</p></div>
+          <button class="primary-button" (click)="openEmployeeCreate()"><span class="plus">+</span> Nuevo empleado</button>
+        </section>
+        <section class="directory-panel">
+          <header class="module-toolbar"><div><h2>Todos los empleados</h2><p>{{ employees().length }} miembros en el equipo</p></div><span class="directory-badge">{{ activeEmployees() }} activos</span></header>
+          <div class="table-scroll"><table class="employee-table">
+            <thead><tr><th>EMPLEADO</th><th>CORREO</th><th>ROL</th><th>DEPARTAMENTO</th><th>LÍMITE SEMANAL</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+            <tbody>
+              @for (employee of employees(); track employee.id) {
+                <tr>
+                  <td><div class="table-employee"><span [class]="'employee-avatar ' + employee.color">{{ employee.initials }}</span><strong>{{ employee.name }}</strong></div></td>
+                  <td class="email-cell">{{ employee.email }}</td>
+                  <td><span class="role-badge" [class.manager-role]="employee.role === 'Manager'">{{ employee.role === 'Manager' ? 'Manager' : 'Staff' }}</span></td>
+                  <td>{{ employee.department }}</td>
+                  <td><strong class="hours-limit">{{ employee.maxHoursPerWeek }} h</strong><span class="hours-caption"> / semana</span></td>
+                  <td><button class="delete-employee" [attr.aria-label]="'Eliminar a ' + employee.name" title="Eliminar empleado" (click)="deleteEmployee(employee)">×</button></td>
+                </tr>
+              } @empty { <tr><td colspan="6" class="table-empty">Aún no hay empleados. Añade al primero para empezar.</td></tr> }
+            </tbody>
+          </table></div>
+          <footer class="directory-footer">Mostrando {{ employees().length }} empleados <span>Los cambios se guardan en tu espacio de trabajo.</span></footer>
+        </section>
+      } @else {
+        <section class="module-heading report-heading">
+          <div><div class="eyebrow"><span class="eyebrow-mark"></span> ANÁLISIS DE EQUIPO</div><h1>Informes por trabajador</h1><p class="page-subtitle">Consulta horas, tipos de turno e historial individual.</p></div>
+          <button class="secondary-button print-button" (click)="exportReport()">↥ <span>Exportar / Imprimir</span></button>
+        </section>
+        <section class="report-panel">
+          <header class="report-toolbar">
+            <div><h2>Informe de actividad</h2><p>Resumen de turnos registrados por empleado.</p></div>
+            <label class="report-employee-select">Empleado
+              <select [ngModel]="reportEmployeeId()" (ngModelChange)="reportEmployeeId.set($event)">
+                @for (employee of employees(); track employee.id) { <option [value]="employee.id">{{ employee.name }}</option> }
+              </select>
+            </label>
+          </header>
+          @if (selectedReportEmployee(); as employee) {
+            <div class="report-profile">
+              <span [class]="'employee-avatar report-avatar ' + employee.color">{{ employee.initials }}</span>
+              <div><h3>{{ employee.name }}</h3><p>{{ employee.role }} <span>·</span> {{ employee.department }} <span>·</span> {{ employee.email }}</p></div>
+              <span class="report-capacity">{{ employee.maxHoursPerWeek }} h <small>límite semanal</small></span>
+            </div>
+            <div class="report-kpis">
+              <article class="report-kpi"><span>Horas esta semana</span><strong>{{ reportWeeklyHours() }}<small>h</small></strong><i>Semana actual</i></article>
+              <article class="report-kpi"><span>Horas este mes</span><strong>{{ reportMonthlyHours() }}<small>h</small></strong><i>{{ employeeReportShifts().length }} turnos en el historial</i></article>
+              <article class="report-kpi"><span>Turnos asignados</span><strong>{{ employeeReportShifts().length }}</strong><i>En el historial disponible</i></article>
+            </div>
+            <div class="breakdown-section">
+              <div class="report-section-heading"><h3>Desglose por tipo</h3><span>Turnos asignados</span></div>
+              <div class="shift-breakdown">
+                <article><i class="legend-dot morning"></i><span>Mañana</span><strong>{{ reportShiftCounts().morning }}</strong></article>
+                <article><i class="legend-dot afternoon"></i><span>Tarde</span><strong>{{ reportShiftCounts().afternoon }}</strong></article>
+                <article><i class="legend-dot night"></i><span>Noche</span><strong>{{ reportShiftCounts().night }}</strong></article>
+                <article><i class="legend-dot guard"></i><span>Guardia</span><strong>{{ reportShiftCounts().guard }}</strong></article>
+              </div>
+            </div>
+            <div class="history-section">
+              <div class="report-section-heading"><h3>Historial de turnos</h3><span>{{ employeeReportShifts().length }} registros</span></div>
+              <div class="table-scroll"><table class="history-table">
+                <thead><tr><th>FECHA</th><th>TIPO DE TURNO</th><th>HORARIO</th><th>ESTADO</th></tr></thead>
+                <tbody>
+                  @for (shift of employeeReportShifts(); track shift.id) {
+                    <tr><td>{{ formatReportDate(shift.date) }}</td><td><span [class]="'shift-type-badge ' + shift.type"><i class="legend-dot" [class]="shift.type"></i>{{ shiftLabel(shift.type) }}</span></td><td>{{ shift.startTime }} – {{ shift.endTime }}</td><td><span class="status-badge">{{ shift.status || 'Asignado' }}</span></td></tr>
+                  } @empty { <tr><td colspan="4" class="table-empty">Este empleado aún no tiene turnos registrados.</td></tr> }
+                </tbody>
+              </table></div>
+            </div>
+          } @else { <div class="empty-report">Añade empleados para consultar sus informes.</div> }
+        </section>
+      }
+    </div>
+  </main>
+</div>
+
+@if (copyModalOpen()) {
+  <div class="modal-backdrop" (click)="!copySaving() && copyModalOpen.set(false)">
+    <section class="shift-modal copy-modal" role="dialog" aria-modal="true" aria-labelledby="copy-modal-title" (click)="$event.stopPropagation()">
+      <div class="modal-heading">
+        <div><span class="modal-kicker">{{ copyMode() === 'single' ? 'DUPLICAR TURNO' : 'REPLICAR JORNADA' }}</span><h2 id="copy-modal-title">{{ copyMode() === 'single' ? 'Duplicar Turno de ' + (copyEmployee()?.name || 'Empleado') : 'Copiar turnos del día' }}</h2><p>{{ copyMode() === 'single' ? 'Elige los días donde quieres duplicar este turno.' : 'Selecciona las fechas del mes en las que quieres repetir estos horarios.' }}</p></div>
+        <button class="icon-button close-button" aria-label="Cerrar" [disabled]="copySaving()" (click)="copyModalOpen.set(false)">×</button>
+      </div>
+      @if (copyError()) { <div class="modal-error" role="alert"><strong>No se pudo completar la copia</strong><span>{{ copyError() }}</span></div> }
+      <div class="copy-source"><span class="copy-source-icon">↗</span><div><span>FECHA DE ORIGEN</span><strong>{{ copySourceDateLabel() }}</strong></div><span class="source-shift-count">{{ copySourceShifts().length }} turnos</span></div>
+      @if (copyMode() === 'single' && copySourceShift()) {
+        <div class="single-shift-summary" [class]=" 'single-shift-summary ' + copySourceShift()!.type">
+          <span class="legend-dot" [class]="copySourceShift()!.type"></span><strong>{{ singleShiftSummary() }}</strong>
+        </div>
+      }
+      @if (copySourceShifts().length === 0) { <p class="copy-empty-source">No hay turnos asignados en esta fecha.</p> }
+      <div class="copy-calendar-heading"><strong>{{ copyCalendarTitle() }}</strong><div><button (click)="selectAllCopyTargets()">Seleccionar todos</button><button (click)="clearCopyTargets()">Limpiar</button></div></div>
+      <div class="copy-calendar" role="group" [attr.aria-label]="'Días de ' + copyCalendarTitle()">
+        @for (weekday of ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']; track weekday) { <span class="copy-weekday">{{ weekday }}</span> }
+        @for (day of copyCalendarSlots(); track $index) {
+          @if (day; as calendarDay) {
+            <label class="copy-calendar-day" [class.source-day]="calendarDay.isSource" [class.target-selected]="copyTargetDates().includes(calendarDay.date)">
+              <input type="checkbox" [checked]="copyTargetDates().includes(calendarDay.date)" [disabled]="calendarDay.isSource || copySaving()" (change)="onCopyDateChange(calendarDay.date, $event)" />
+              <span>{{ calendarDay.dayNumber }}</span>
+              @if (calendarDay.isSource) { <small>Origen</small> }
+            </label>
+          } @else { <span class="copy-calendar-blank" aria-hidden="true"></span> }
+        }
+      </div>
+      <div class="copy-selection-summary"><span>{{ copyTargetDates().length }} días seleccionados</span><span>Los turnos con conflictos se omitirán.</span></div>
+      <div class="modal-actions"><button type="button" class="secondary-button" [disabled]="copySaving()" (click)="copyModalOpen.set(false)">Cancelar</button><button type="button" class="primary-button" [disabled]="copySaving() || !copyTargetDates().length || (copyMode() === 'single' ? !copySourceShift() : !copySourceShifts().length)" (click)="copyMode() === 'single' ? applySingleCopy() : applyBulkCopy()">{{ copySaving() ? 'Aplicando copia...' : copyMode() === 'single' ? 'Aplicar a fechas seleccionadas' : 'Aplicar copia masiva' }}</button></div>
+    </section>
+  </div>
+}
+
+@if (exportingPdf()) {
+  <section class="print-report" [attr.aria-label]="'Cuadrante ' + (viewMode() === 'month' ? 'mensual' : 'semanal') + ' listo para imprimir'">
+    <header class="print-header">
+      <div class="print-brand"><span class="print-brand-mark">S</span><span>ShiftMaster</span></div>
+      <h1>ShiftMaster - Cuadrante {{ viewMode() === 'month' ? 'Mensual' : 'Semanal' }} de Turnos</h1>
+      <p class="print-subtitle">{{ viewMode() === 'month' ? monthTitle() : weekLabel() }} <span>·</span> Departamento: {{ department() }}</p>
+      <p class="print-generated">Generado el {{ printGeneratedDate }}</p>
+    </header>
+    <table class="print-schedule-table" [class.monthly-print]="viewMode() === 'month'">
+      <thead><tr>
+        <th class="print-employee-heading">Empleado</th>
+        @for (day of days(); track day.date) {
+          <th>
+            @if (viewMode() === 'month') { <strong>{{ printableDayNumber(day) }}</strong> }
+            @else { <span>{{ day.label }}</span><strong>{{ day.date }}</strong> }
+          </th>
+        }
+        <th class="print-hours-heading">Horas</th>
+      </tr></thead>
+      <tbody>
+        @for (employee of visibleEmployees(); track employee.id) {
+          <tr>
+            <th scope="row"><strong>{{ employee.name }}</strong><span>{{ employee.department }}</span></th>
+            @for (day of days(); track day.date) {
+              <td>
+                @for (shift of shiftsFor(employee.id, day.date); track shift.id) {
+                  <div class="print-shift">{{ shiftInitial(shift.type) }}</div>
+                } @empty { <span class="print-empty">-</span> }
+              </td>
+            }
+            <td class="print-hours-cell">{{ printableHours(employee.id) }} h</td>
+          </tr>
+        } @empty { <tr><td [attr.colspan]="days().length + 2" class="print-no-employees">No hay empleados en este departamento.</td></tr> }
+      </tbody>
+    </table>
+    <footer class="print-footer">
+      <span class="print-legend">M: Mañana | T: Tarde | N: Noche | G: Guardia Completa</span>
+      <strong>Total de horas planificadas: {{ printableTotalHours() }} h</strong>
+      <div class="supervisor-signature"><span>Supervisor / Visto bueno</span><i></i></div>
+    </footer>
+  </section>
+}
+
+@if (modalOpen()) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <section class="shift-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" (click)="$event.stopPropagation()">
+      <div class="modal-heading"><div><span class="modal-kicker">PLANIFICACIÓN DE EQUIPO</span><h2 id="modal-title">{{ editingShift() ? 'Editar turno' : 'Asignar un turno' }}</h2><p>Completa los detalles del turno para tu equipo.</p></div><button class="icon-button close-button" aria-label="Cerrar" (click)="closeModal()">×</button></div>
+      @if (modalError()) { <div class="modal-error" role="alert"><strong>No se pudo completar la acción</strong><span>{{ modalError() }}</span></div> }
+      <form (ngSubmit)="saveShift()">
+        <label class="form-field">Empleado
+          <select name="employeeId" [(ngModel)]="draft.employeeId" required>
+            <option value="" disabled>Selecciona un empleado</option>
+            @for (employee of employees(); track employee.id) { <option [value]="employee.id">{{ employee.name }} · {{ employee.department }}</option> }
+          </select>
+        </label>
+        <label class="form-field">Fecha<input type="date" name="date" [(ngModel)]="draft.date" required /></label>
+        <div class="time-fields">
+          <label class="form-field">Hora de inicio<input type="time" name="startTime" [(ngModel)]="draft.startTime" required /></label>
+          <label class="form-field">Hora de fin<input type="time" name="endTime" [(ngModel)]="draft.endTime" required /></label>
+        </div>
+        <label class="form-field">Tipo de turno
+          <select name="type" [(ngModel)]="draft.type" required><option value="morning">Mañana</option><option value="afternoon">Tarde</option><option value="night">Noche</option><option value="guard">Guardia</option></select>
+        </label>
+        <div class="modal-actions">
+          @if (editingShift(); as shift) { <button type="button" class="delete-shift-button" (click)="deleteEditingShift()" [disabled]="saving() || deletingShift()">{{ deletingShift() ? 'Eliminando...' : 'Eliminar turno' }}</button> }
+          <button type="button" class="secondary-button" (click)="closeModal()" [disabled]="deletingShift()">Cancelar</button>
+          <button type="submit" class="primary-button" [disabled]="saving() || deletingShift()">{{ saving() ? 'Guardando...' : editingShift() ? 'Guardar cambios' : 'Asignar turno' }}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (employeeModalOpen()) {
+  <div class="modal-backdrop" (click)="employeeModalOpen.set(false)">
+    <section class="shift-modal employee-modal" role="dialog" aria-modal="true" aria-labelledby="employee-modal-title" (click)="$event.stopPropagation()">
+      <div class="modal-heading"><div><span class="modal-kicker">GESTIÓN DE EQUIPO</span><h2 id="employee-modal-title">Nuevo empleado</h2><p>Registra a un nuevo miembro en tu equipo.</p></div><button class="icon-button close-button" aria-label="Cerrar" (click)="employeeModalOpen.set(false)">×</button></div>
+      @if (employeeError()) { <div class="modal-error" role="alert"><strong>No se pudo guardar el empleado</strong><span>{{ employeeError() }}</span></div> }
+      <form (ngSubmit)="saveEmployee()">
+        <label class="form-field">Nombre completo<input type="text" name="employeeName" [(ngModel)]="employeeDraft.name" placeholder="Ej. Ana García" required /></label>
+        <label class="form-field">Correo electrónico<input type="email" name="employeeEmail" [(ngModel)]="employeeDraft.email" placeholder="nombre@empresa.com" required /></label>
+        <div class="time-fields">
+          <label class="form-field">Rol<select name="employeeRole" [(ngModel)]="employeeDraft.role"><option value="Staff">Staff</option><option value="Manager">Manager</option></select></label>
+          <label class="form-field">Límite de horas<input type="number" name="employeeHours" [(ngModel)]="employeeDraft.maxHoursPerWeek" min="1" max="168" required /></label>
+        </div>
+        <label class="form-field">Departamento<input type="text" name="employeeDepartment" [(ngModel)]="employeeDraft.department" placeholder="Ej. Operaciones" required /></label>
+        <div class="modal-actions"><button type="button" class="secondary-button" (click)="employeeModalOpen.set(false)" [disabled]="employeeSaving()">Cancelar</button><button type="submit" class="primary-button" [disabled]="employeeSaving()">{{ employeeSaving() ? 'Guardando...' : 'Crear empleado' }}</button></div>
+      </form>
+    </section>
+  </div>
+}
